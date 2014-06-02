@@ -19,9 +19,48 @@ def studio_hash(s):
         return True
     return False
 
+def url_slug(s):
+    ''' Return a string appropriate for embedding in a URL. 
+    For example, "Hello, Mr. Rogers!" will convert to "Hello_Mr._Rogers"
+    '''
+
+    # Step 1: Replace non-alphanumeric characters with underscores
+    new_string = str()
+    for i in range(len(s)):
+        if s[i].isalnum():
+            new_string = new_string + s[i]
+        else:
+            new_string = new_string + '_'
+
+    # Step 2: Remove underscores at the end
+    while new_string[-1] == '_':
+        new_string = new_string[:-1]
+    if len(new_string) == 0:
+        new_string = "_"
+
+    # Step 3: Consolidate repeated underscores
+    new_string = new_string.replace("_____", "_")
+    new_string = new_string.replace("___", "_")
+    new_string = new_string.replace("__", "_")
+
+    return new_string
+
+used_url_names = set()
+def unique_url_slug(s):
+    ''' Check if we've seen 's' before, and if so, '''
+    new_string = url_slug(s)
+    if new_string in used_url_names:
+        i = 0
+        while new_string+"_"+str(i) in used_url_names:
+            i = i+1
+            continue
+        new_string = new_string+"_"+str(i)
+    used_url_names.add(new_string)
+    return new_string
+
+
 parser = argparse.ArgumentParser(description = "Clean up XML spat out by Studio.")
 parser.add_argument("base", help="Base directory of Studio-dumped XML")
-#parser.add_argument("output", help="Location of cleaned output file")
 args = parser.parse_args()
 
 # given element of the form <foo url_name="...">, if there's a directory named "tag",
@@ -70,37 +109,18 @@ root.parent = None
 load_subtree(root)
 
 ## Now, we'll clean up the URL names Studio assigned
-used_names = set()
-def url_cleanify(s):
-    new_string = str()
-    for i in range(len(s)):
-        if s[i].isalnum():
-            new_string = new_string + s[i]
-        else:
-            new_string = new_string + '_'
-
-    while new_string[-1] == '_':
-        new_string = new_string[:-1]
-    if len(new_string) == 0:
-        new_string = "_"
-
-    if new_string in used_names:
-        i = 0
-        while new_string+"_"+str(i) in used_names:
-            i = i+1
-            continue
-        new_string = new_string+"_"+str(i)
-    used_names.add(new_string)
-        
-    return new_string
-
+# Step 1: Fill up the namespace with existing URL slugs. These must be unique. 
 for e in tree.iter():
     if 'url_name' in e.attrib:
-        used_names.add(e.attrib['url_name'])
-    if 'display_name' in e.attrib and studio_hash(e.attrib['url_name']):
-        e.attrib['url_name'] = url_cleanify(e.attrib['display_name'])
+        unique_url_slug(e.attrib['url_name'])
 
-## Next, we'll clean up the filenames Studio assigned
+# Step 2: If we have a Studio-assigned URL name, but we do have a display name,
+# change the URL name to be a sluggification of the display name
+for e in tree.iter():
+    if 'display_name' in e.attrib and studio_hash(e.attrib['url_name']):
+        e.attrib['url_name'] = unique_url_slug(e.attrib['display_name'])
+
+## Step 3: We'll clean up the filenames Studio assigned for our HTML files
 for e in tree.iter():
     if 'filename' in e.attrib and os.path.exists(os.path.join(args.base, 'html', e.attrib['filename'])+".html") and studio_hash(e.attrib['filename']):
         oldpath = os.path.join(args.base, 'html', e.attrib['filename'])+".html"
@@ -111,13 +131,14 @@ for e in tree.iter():
             os.rename(oldpath, newpath)
             e.attrib['filename'] = slug
 
-## Next, discussion tags
+## Step 4: We'll add discussion tags where relevant
+## 
+## If we don't have a nice name, we'll assume the discussion is 
+## about the previous node in the tree. 
 for e in tree.iter():
     if e.tag == 'discussion': 
-        print e
         related_index = e.parent._children.index(e)-1
         if related_index >= 0: 
-            print e.attrib
             related_node = e.parent._children[related_index]
             if studio_hash(e.attrib['url_name']):
                 e.attrib['url_name'] = related_node.attrib['url_name'] + '_discussion'
@@ -125,6 +146,7 @@ for e in tree.iter():
                 if 'display_name' in related_node.attrib:
                     e.attrib['discussion_target'] = related_node.attrib['display_name']
 
+# Step 5: We'll dump back to the file system
 output = ET.tostring(root) # TODO: Tounicode
 
 #output_file = open(args.output, "w")
