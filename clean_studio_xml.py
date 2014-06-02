@@ -12,6 +12,13 @@ import sys
 import xml.etree
 import xml.etree.ElementTree as ET
 
+shre = re.compile("^[a-f0-9]+$")
+def studio_hash(s):
+    ''' Check if a string is a Studio-generated hash '''
+    if len(s) == len("d750387a715f4c0e981efebe128ff754") and shre.match(s):
+        return True
+    return False
+
 parser = argparse.ArgumentParser(description = "Clean up XML spat out by Studio.")
 parser.add_argument("base", help="Base directory of Studio-dumped XML")
 #parser.add_argument("output", help="Location of cleaned output file")
@@ -90,12 +97,12 @@ def url_cleanify(s):
 for e in tree.iter():
     if 'url_name' in e.attrib:
         used_names.add(e.attrib['url_name'])
-    if 'display_name' in e.attrib:
+    if 'display_name' in e.attrib and studio_hash(e.attrib['url_name']):
         e.attrib['url_name'] = url_cleanify(e.attrib['display_name'])
 
 ## Next, we'll clean up the filenames Studio assigned
 for e in tree.iter():
-    if 'filename' in e.attrib and os.path.exists(os.path.join(args.base, 'html', e.attrib['filename'])+".html"):
+    if 'filename' in e.attrib and os.path.exists(os.path.join(args.base, 'html', e.attrib['filename'])+".html") and studio_hash(e.attrib['filename']):
         oldpath = os.path.join(args.base, 'html', e.attrib['filename'])+".html"
         if 'url_name' in e.attrib:
             slug = e.attrib['url_name']
