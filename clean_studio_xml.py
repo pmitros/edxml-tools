@@ -1,8 +1,3 @@
-# Basedn on a one-off script by Chris Terman
-#
-# (Slightly) productionized by Piotr Mitros. Mistakes belong to Piotr
-# Mitros. Credit belongs to cjt.
-
 import argparse
 import json
 import os,os.path
@@ -12,6 +7,7 @@ import sys
 import xml.etree
 import xml.etree.ElementTree as ET
 
+import xml.dom.minidom
 
 parser = argparse.ArgumentParser(description = "Clean up XML spat out by Studio.")
 parser.add_argument("base", help="Base directory of Studio-dumped XML")
@@ -76,7 +72,12 @@ def set_url_name_slug(e, new_name):
 def load_subtree(element):
     ''' given element of the form <foo url_name="...">, if there's a directory named "tag",
     parse the file named by the "url_name" attribute and add subtree as a child of element.
-    Recursively load each subtree, add parent pointers so we can walk up the tree. '''
+    Recursively load each subtree, add parent pointers so we can walk up the tree.
+
+    This function is based on a one-off script by Chris Terman
+    (Slightly) productionized by Piotr Mitros. Mistakes belong to Piotr
+    Mitros. Credit belongs to cjt. '''
+
     if 'url_name' not in element.attrib:
         return
 
@@ -156,11 +157,22 @@ for e in tree.iter():
                 if 'display_name' in related_node.attrib:
                     e.attrib['discussion_target'] = related_node.attrib['display_name']
 
+# We're done. Dump problems and course.xml back to the file system
+for e in tree.findall(".//problem"):
+    if 'url_name' not in e.attrib:
+        continue
+    problemfile = open(os.path.join(args.base, 'problem/{problem}.xml'.format(problem=e.attrib["url_name"])), "w")
+    problemfile.write(ET.tostring(e))
+    problemfile.close()
+    del e._children[:]
+    e.text = ''
+    for key in list(e.attrib):
+        if key != 'url_name':
+            del e.attrib[key]
 
-# We're done. Dump course.xml back to the file system
 output = ET.tostring(root) # TODO: Tounicode
 output_file = open(os.path.join(args.base, 'course.xml'), "w")
-output_file.write(output)
+output_file.write(xml.dom.minidom.parseString(output).toprettyxml(indent='  '))
 output_file.close()
 
 # And finally, dump the mapping file
