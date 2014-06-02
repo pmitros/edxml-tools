@@ -33,3 +33,7 @@ students.
 2. Studio is a bit broken in how it handles drafts/public versions in
 imports/exports. Studio has a horrible hack, which this code does not
 support. Make everything public before exporting.
+
+This code does save a mapping between your old URL names and new ones
+in the static directory. This will make it possible to compare
+analytics and similar between runs.
