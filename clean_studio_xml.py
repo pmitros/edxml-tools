@@ -111,6 +111,20 @@ for e in tree.iter():
             os.rename(oldpath, newpath)
             e.attrib['filename'] = slug
 
+## Next, discussion tags
+for e in tree.iter():
+    if e.tag == 'discussion': 
+        print e
+        related_index = e.parent._children.index(e)-1
+        if related_index >= 0: 
+            print e.attrib
+            related_node = e.parent._children[related_index]
+            if studio_hash(e.attrib['url_name']):
+                e.attrib['url_name'] = related_node.attrib['url_name'] + '_discussion'
+            if not 'discussion_target' in e.attrib or studio_hash(e.attrib['discussion_target']):
+                if 'display_name' in related_node.attrib:
+                    e.attrib['discussion_target'] = related_node.attrib['display_name']
+
 output = ET.tostring(root) # TODO: Tounicode
 
 #output_file = open(args.output, "w")
