@@ -176,6 +176,8 @@ output_file.write(xml.dom.minidom.parseString(output).toprettyxml(indent='  '))
 output_file.close()
 
 # And finally, dump the mapping file
+if not os.path.exists(os.path.join(args.base, 'static')):
+    os.mkdir(os.path.join(args.base, 'static'))
 mapping_filename = os.path.join(args.base, 'static/urlname_mapping.json')
 i = 0
 while os.path.exists(mapping_filename):
