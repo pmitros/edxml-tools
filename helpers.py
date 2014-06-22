@@ -123,7 +123,8 @@ def _url_slug_encode(s):
             new_string = new_string + '_'
 
     # Step 2: Remove underscores at the end
-    while new_string[-1] == '_':
+    
+    while len(new_string) and new_string[-1] == '_':
         new_string = new_string[:-1]
     if len(new_string) == 0:
         new_string = "_"
@@ -177,8 +178,6 @@ def load_subtree(directory_base, element):
         return
 
     filename = os.path.join(directory_base, element.tag,element.attrib['url_name']+'.xml')
-
-    print filename
 
     if os.path.isdir(os.path.join(directory_base, element.tag)) and element.attrib.has_key('url_name'):
         if not os.path.exists(filename):
@@ -264,7 +263,3 @@ def propagate_youtube_information(tree):
             e.attrib['display_name'] = "{title} ({duration})".format(title=vid_info['title'], 
                                                            duration=vid_info['duration_str'])
 
-def make_rss(tree):
-    for e in tree.iter():
-        if e.tag in ['video']: 
-            print e.attrib
