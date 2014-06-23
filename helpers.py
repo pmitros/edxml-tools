@@ -1,3 +1,4 @@
+import datetime
 import json
 import os,os.path
 import re
@@ -229,20 +230,36 @@ def save_tree(basepath, tree):
 
 yt_service = None
 def youtube_entry(video):
+    global yt_service
     if not yt_service:
         import gdata.youtube.service
         yt_service = gdata.youtube.service.YouTubeService()
 
-    # TODO: Parse traditional entries. 
-    video_id = video.attrib.get('youtube_id_1_0', None)
+    # TODO: Parse traditional XML entries. 
+    # Handle both XML <video> elements and straight-up Youtube IDs
+    if not isinstance(video, basestring):
+        video_id = video.attrib.get('youtube_id_1_0', None)
+    else: 
+        video_id = video
     if not video_id:
         return
 
     entry = yt_service.GetYouTubeVideoEntry(video_id=video_id)
     return {'title': entry.media.duration.text, 
             'duration': float(entry.media.duration.seconds), 
-            'duration_str': str(datetime.timedelta(seconds = int(entry.media.duration.seconds))),
+            'duration_str': format_time_delta(entry.media.duration.seconds),
             'description' : entry.media.description.text}
+
+def format_time_delta(time):
+    ''' Pretty-print a time delta. Parameters is number of seconds. '''
+    time_delta = str(datetime.timedelta(seconds = int(time)))
+    # Strip trailing 00:0 from 00:03:45
+    while time_delta[:1] in "0:":
+        time_delta = time_delta[1:]
+    # If time delta is 0, continue
+    if len(time_delta) == 0:
+        time_delta = "0"
+    return time_delta
 
 def propagate_youtube_information(tree):
     ''' Retrieve information from Youtube. Use it to set 
@@ -263,3 +280,12 @@ def propagate_youtube_information(tree):
             e.attrib['display_name'] = "{title} ({duration})".format(title=vid_info['title'], 
                                                            duration=vid_info['duration_str'])
 
+def format_file_size(num):
+    ''' Format a number of bytes into a human-readable size. 
+    http://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
+    '''
+    for x in ['bytes','KB','MB','GB']:
+        if num < 1024.0 and num > -1024.0:
+            return "%3.1f%s" % (num, x)
+        num /= 1024.0
+    return "%3.1f%s" % (num, 'TB')

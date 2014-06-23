@@ -1,3 +1,23 @@
+''' This is a script which will take an edX course export, and create
+an RSS feed from it.
+
+I *strongly* recommend running clean_studio_xml on a dump before
+running this script.
+
+Limitations: 
+
+* This does not pay attention to release dates. To-be-released videos
+  can appear in the RSS feed.
+* Courses must use Youtube videos. I use Youtube as a
+  transcoder. Google invested millions into doing this well, and I
+  didn't want to replicate the effort. As a result, if Google changes
+  things around, we may need to swap things around.
+* We don't have course URLs by default. This sure would be nice. 
+* It would be nice to embed pages for where we have assessments and
+  interactives. RSS supports this, but the script does not (in part
+  due to complexity of generating URLs). 
+'''
+
 import StringIO
 import argparse
 import datetime
@@ -13,50 +33,62 @@ import PyRSS2Gen
 import helpers
 
 parser = argparse.ArgumentParser(description = "Generate an RSS feed of a course.")
-parser.add_argument("base", help="Base directory of Studio-dumped XML")
+parser.add_argument("export_base", help="Base directory of Studio-dumped XML")
 parser.add_argument("url_base", help="URL the feed will be hosted from")
 parser.add_argument("--format", help="Format of RSS feed (mp4, webm, 3gp, or m4a)", default='webm', dest='format')
 parser.add_argument("--course_url", help="URL of the course about page", default="https://www.edx.org/", dest="course_url")
 
 args = parser.parse_args()
 
-video_format = args.format
-url_base = args.url_base
-base = args.base
 
 # Video format params
-vfp = { 'mp4': {'vyd' : 'mp4', # Youtube downloader
-                'vfn':'mp4', # Filename extension
-                'vmt':'video/mp4', # MIME type
-                'vdr': 'mp4',  # Directory
-                'vcn': 'MPEG Video', # Video codec name
-                'vdc': 'This RSS feed is for MPEG videos. This is the most common video format and should work with most software. ' # Description
-                }, 
-        'webm': {'vyd' : 'webm', # Youtube downloader
-                'vfn':'webm', # Filename extension
-                'vmt':'video/webm', # MIME type
-                'vdr': 'webm',  # Directory
-                'vcn': 'WebM Video', # Video codec name
-                'vdc': 'This RSS feed is using WebM videos. WebM is an advanced video format developed by Goolgle. This is the recommended feed if your software supports it (most software does not). ' # Description
-                }, 
-        '3gp': {'vyd' : '3gp', # Youtube downloader
-                'vfn':'3gp', # Filename extension
-                'vmt':'video/3gpp', # MIME type
-                'vdr': '3gp',  # Directory
-                'vcn': '3GPP Video', # Video codec name
-                'vdc': 'This RSS feed is for video files in the 3gpp format. 3gpp is a low-bandwidth format commonly used for video delivered to cell phones. ' # Description
-                }, 
-        'm4a': {'vyd' : '140', # Youtube downloader
-                'vfn':'m4a', # Filename extension
-                'vmt':'audio/mp4a-latm', # MIME type
-                'vdr': 'm4a',  # Directory
-                'vcn': 'AAC Audio', # Video codec name
-                'vdc': 'This is an audio-only RSS feed. It uses the AAC audio codec. ' # Description
-                }, 
-        }
+video_format_parameters = { 'mp4': {'youtube_dl_code' : 'mp4', 
+                                    'video_extension':'mp4', 
+                                    'mimetype':'video/mp4', 
+                                    'video_codec_name': 'MPEG Video', 
+                                    'codec_description': 'This RSS feed is for MPEG videos. This is the most common video format and should work with most software. ' 
+                                    }, 
+                            'webm': {'youtube_dl_code' : 'webm', 
+                                     'video_extension':'webm', 
+                                     'mimetype':'video/webm', 
+                                     'video_codec_name': 'WebM Video', 
+                                     'codec_description': 'This RSS feed is using WebM videos. WebM is an advanced video format developed by Google. This is the recommended feed if your software supports it (most software does not). ' 
+                                     }, 
+                            '3gp': {'youtube_dl_code' : '3gp', 
+                                    'video_extension':'3gp', 
+                                    'mimetype':'video/3gpp', 
+                                    'video_codec_name': '3GPP Video', 
+                                    'codec_description': 'This RSS feed is for video files in the 3gpp format. 3gpp is a low-bandwidth format commonly used for video delivered to cell phones. ' 
+                                    }, 
+                            'm4a': {'youtube_dl_code' : '140', 
+                                    'video_extension':'m4a', 
+                                    'mimetype':'audio/mp4a-latm', 
+                                    'video_codec_name': 'AAC Audio', 
+                                    'codec_description': 'This is an audio-only RSS feed. It uses the AAC audio codec. ' 
+                                    }, 
+                            }
 
-print base
-tree = helpers.load_xml_course(base)
+video_format = args.format
+conf = { 'video_format' : args.format, 
+         'url_base' : args.url_base, 
+         'export_base' : args.export_base, 
+         'course_url':args.course_url,
+         'mimetype' : video_format_parameters[video_format]['mimetype'], 
+         'codec_description' : video_format_parameters[video_format]['codec_description'], 
+         'video_codec_name' : video_format_parameters[video_format]['video_codec_name'], 
+         'youtube_dl_code' : video_format_parameters[video_format]['youtube_dl_code'], 
+         'video_extension' : video_format_parameters[video_format]['video_extension'], 
+         'course_description': '''A prototype podcast of the videos from {course_name}, a course from {course_org} on edX. The full course, including assessments, is available, free-of-charge, at {course_url}. {codec_description} Note that this is a podcast of just the videos from an interactive on-line course; in some cases, the videos may be difficult to follow without integrated assessments, simulations, or other interactions at {course_url}. For a more complete experience, please visit the full course. ''',
+         'video_description': '''{video_location}. This is a prototype podcast of the videos from {course_name}. The full course is available free-of-charge at {course_url}. Note that the full course includes assessments, as well as other interactives (such as simulations, discussions, etc.). Some videos may be difficult to follow without the integrated interactions. For a more complete experience, please visit the full course. ({pretty_length}, {duration}, {video_codec_name}) ''',
+         }
+
+print "Encoding", conf['export_base']
+tree = helpers.load_xml_course(conf['export_base'])
+
+conf.update({'course_org' : tree.getroot().attrib['org'],
+             'course_number' : tree.getroot().attrib['course'],
+             'course_id' : tree.getroot().attrib['url_name'],
+             'course_name' : tree.getroot().attrib['display_name']})
 
 items = []
 
@@ -82,29 +114,31 @@ for e in tree.iter():
             node = node.parent
         description.reverse()
         
-        item_dict['description'] = "edX RSS Prototype. Video is from "+(" / ".join(description))
         
-        base_filename = youtube_id+"."+vfp[video_format]['vfn']
+        base_filename = youtube_id+"."+conf['video_extension']
         dl_filename = os.path.join('output', base_filename)
         if not os.path.exists(dl_filename):
-            command = "youtube-dl -f {fmt} https://www.youtube.com/watch?v={uid} -o {file}".format(fmt=vfp[video_format]['vyd'], 
+            command = "youtube-dl -f {fmt} https://www.youtube.com/watch?v={uid} -o {file}".format(fmt=conf['youtube_dl_code'], 
                                                                                                    uid=youtube_id, 
                                                                                                    file=dl_filename)
             os.system(command)
-        item_dict['enclosure'] = PyRSS2Gen.Enclosure(url=urlparse.urljoin(url_base, base_filename),
-                                                     length=os.stat(dl_filename).st_size,
-                                                     type=vfp[video_format]['vmt'])
-        items.append(PyRSS2Gen.RSSItem(**item_dict))
+        length = os.stat(dl_filename).st_size
+        pretty_length = helpers.format_file_size(length)
 
-xml_org = tree.getroot().attrib['org']
-xml_course = tree.getroot().attrib['course']
-xml_url_name = tree.getroot().attrib['url_name']
-xml_course_name = tree.getroot().attrib['display_name']
+        item_dict['description'] = conf['video_description'].format(video_location = (" / ".join(description)), 
+                                                                    pretty_length = pretty_length, 
+                                                                    duration = helpers.youtube_entry(youtube_id)['duration_str'], 
+                                                                    **conf)
+
+        item_dict['enclosure'] = PyRSS2Gen.Enclosure(url=urlparse.urljoin(conf['url_base'], base_filename),
+                                                     length=length,
+                                                     type=conf['mimetype'])
+        items.append(PyRSS2Gen.RSSItem(**item_dict))
 
 rss = PyRSS2Gen.RSS2(
     title = tree.getroot().attrib['display_name'],
     link = args.course_url,
-    description = "A prototype podcast of the videos from {coursename}, a course from {org} on edX. The full course, including assessments, is available, free-of-charge, at {course_url}. {feedtype} Note that this is an interactive course; in some cases, the videos may be difficult to follow without the integrated interactive content on http://www.edx.org.".format(coursename=xml_course_name, org=xml_org, course_url = args.course_url, feedtype = vfp[video_format]['vdc']), 
+    description = conf["course_description"].format(**conf), 
     lastBuildDate = datetime.datetime.now(), 
     items = items, 
     managingEditor = "edX Learning Sciences"
@@ -113,10 +147,11 @@ rss = PyRSS2Gen.RSS2(
 ## Write output to a file
 data = StringIO.StringIO()
 rss.write_xml(data)
-output_filename = "output/{org}_{course}_{url_name}_{format}.rss".format(org = xml_org, 
-                                                                         course = xml_course, 
-                                                                         url_name = xml_url_name, 
+output_filename = "output/{org}_{course}_{url_name}_{format}.rss".format(org = conf['course_org'], 
+                                                                         course = conf['course_number'], 
+                                                                         url_name = conf['course_id'], 
                                                                          format = video_format)
 f = open(output_filename, "w")
 f.write(xml.dom.minidom.parseString(data.getvalue()).toprettyxml())
 f.close()
+print "Saved ", output_filename
