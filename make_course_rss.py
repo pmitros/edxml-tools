@@ -16,11 +16,16 @@ Limitations:
 * It would be nice to embed pages for where we have assessments and
   interactives. RSS supports this, but the script does not (in part
   due to complexity of generating URLs). 
+
+If you'd like to do this a lot, generate a Google API key, and use the
+environment variables: GOOGLE_DEVID and GOOGLE_DEVKEY. Google locks
+you out pretty quickly without those. 
 '''
 
 import StringIO
 import argparse
 import datetime
+import json
 import os
 import os.path
 import re
@@ -78,8 +83,9 @@ conf = { 'video_format' : args.format,
          'video_codec_name' : video_format_parameters[video_format]['video_codec_name'], 
          'youtube_dl_code' : video_format_parameters[video_format]['youtube_dl_code'], 
          'video_extension' : video_format_parameters[video_format]['video_extension'], 
-         'course_description': '''A prototype podcast of the videos from {course_name}, a course from {course_org} on edX. The full course, including assessments, is available, free-of-charge, at {course_url}. {codec_description} Note that this is a podcast of just the videos from an interactive on-line course; in some cases, the videos may be difficult to follow without integrated assessments, simulations, or other interactions at {course_url}. For a more complete experience, please visit the full course. ''',
-         'video_description': '''{video_location}. This is a prototype podcast of the videos from {course_name}. The full course is available free-of-charge at {course_url}. Note that the full course includes assessments, as well as other interactives (such as simulations, discussions, etc.). Some videos may be difficult to follow without the integrated interactions. For a more complete experience, please visit the full course. ({pretty_length}, {duration}, {video_codec_name}) ''',
+         'podcast_title' : "Videos from {course_org} : {course_name} on edX", 
+         'podcast_description': '''A prototype podcast of the videos from {course_name}, a course from {course_org} on edX. The full course, including assessments, is available, free-of-charge, at {course_url}. {codec_description} Note that this is a podcast of just the videos from an interactive on-line course; in some cases, the videos may be difficult to follow without integrated assessments, simulations, or other interactions at {course_url}. RSS feeds for other codecs are available. For a more complete experience, please visit the full course. ''',
+         'video_description': '''{youtube_description} {video_location}. This is a prototype podcast of the videos from {course_name}. The full course is available free-of-charge at {course_url}. Note that the full course includes assessments, as well as other interactives (such as simulations, discussions, etc.). Some videos may be difficult to follow without the integrated interactions. For a more complete experience, please visit the full course. ({pretty_length}, {duration}, {video_codec_name}) ''',
          }
 
 print "Encoding", conf['export_base']
@@ -100,9 +106,19 @@ for e in tree.iter():
     if e.tag in ['video']: 
         if 'youtube_id_1_0' not in e.attrib:
             continue
-        item_dict['title'] = e.attrib['display_name']
-        item_dict['guid'] = e.attrib['url_name']
         youtube_id = e.attrib['youtube_id_1_0']
+        youtube_cache = os.path.join('output', youtube_id + ".json")
+        if not os.path.exists(youtube_cache):
+            youtube_info = helpers.youtube_entry(youtube_id)
+            f = open(youtube_cache, "w")
+            json.dump(youtube_info, f)
+            f.close()
+        else:
+            youtube_info = json.load(open(youtube_cache))
+        item_dict['title'] = e.attrib['display_name']
+        if item_dict['title'] == 'Video':
+            item_dict['title'] = youtube_info['title']
+        item_dict['guid'] = e.attrib['url_name']
         if not valid_youtube_id.match(youtube_id):
             raise TypeError("Youtube ID has an invalid string. Security issue?")
         item_dict['link'] = "https://www.youtube.com/watch?v="+youtube_id
@@ -125,9 +141,16 @@ for e in tree.iter():
         length = os.stat(dl_filename).st_size
         pretty_length = helpers.format_file_size(length)
 
-        item_dict['description'] = conf['video_description'].format(video_location = (" / ".join(description)), 
+        youtube_description = youtube_info['description']
+        if not youtube_description:
+            youtube_description = ""
+        if len(youtube_description) > 0 and youtube_description[-1]!=' ':
+            youtube_description = youtube_description + ' '
+
+        item_dict['description'] = conf['video_description'].format(youtube_description = youtube_description,
+                                                                    video_location = (" / ".join(description)), 
                                                                     pretty_length = pretty_length, 
-                                                                    duration = helpers.youtube_entry(youtube_id)['duration_str'], 
+                                                                    duration = youtube_info['duration_str'], 
                                                                     **conf)
 
         item_dict['enclosure'] = PyRSS2Gen.Enclosure(url=urlparse.urljoin(conf['url_base'], base_filename),
@@ -135,10 +158,12 @@ for e in tree.iter():
                                                      type=conf['mimetype'])
         items.append(PyRSS2Gen.RSSItem(**item_dict))
 
+items.reverse()
+
 rss = PyRSS2Gen.RSS2(
-    title = tree.getroot().attrib['display_name'],
+    title = conf["podcast_title"].format(**conf), 
     link = args.course_url,
-    description = conf["course_description"].format(**conf), 
+    description = conf["podcast_description"].format(**conf), 
     lastBuildDate = datetime.datetime.now(), 
     items = items, 
     managingEditor = "edX Learning Sciences"

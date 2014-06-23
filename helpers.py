@@ -234,6 +234,11 @@ def youtube_entry(video):
     if not yt_service:
         import gdata.youtube.service
         yt_service = gdata.youtube.service.YouTubeService()
+        if 'GOOGLE_DEVKEY' in os.environ:
+            yt_service.ssl = True
+            yt_service.developer_key = os.environ['GOOGLE_DEVKEY']
+        if 'GOOGLE_DEVID' in os.environ:
+            yt_service.client_id = os.environ['GOOGLE_DEVID']
 
     # TODO: Parse traditional XML entries. 
     # Handle both XML <video> elements and straight-up Youtube IDs
