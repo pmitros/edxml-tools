@@ -250,7 +250,7 @@ def youtube_entry(video):
         return
 
     entry = yt_service.GetYouTubeVideoEntry(video_id=video_id)
-    return {'title': entry.media.duration.text, 
+    return {'title': entry.media.title.text, 
             'duration': float(entry.media.duration.seconds), 
             'duration_str': format_time_delta(entry.media.duration.seconds),
             'description' : entry.media.description.text}
