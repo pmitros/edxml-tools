@@ -124,7 +124,7 @@ def _url_slug_encode(s):
 
     # Step 2: Remove underscores at the end
     
-    while len(new_string) and new_string[-1] == '_':
+    while len(new_string)>0 and new_string[-1] == '_':
         new_string = new_string[:-1]
     if len(new_string) == 0:
         new_string = "_"
