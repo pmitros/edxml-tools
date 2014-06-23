@@ -94,18 +94,17 @@ for e in tree.iter():
         item_dict['enclosure'] = PyRSS2Gen.Enclosure(url=urlparse.urljoin(url_base, base_filename),
                                                      length=os.stat(dl_filename).st_size,
                                                      type=vfp[video_format]['vmt'])
-        #video_url = "http://foo.com"
-        #item_dict['enclosure'] = video_url
-        #print e.attrib['youtube_id_1_0']
-        #print 
         items.append(PyRSS2Gen.RSSItem(**item_dict))
 
-print tree.getroot().attrib
+xml_org = tree.getroot().attrib['org']
+xml_course = tree.getroot().attrib['course']
+xml_url_name = tree.getroot().attrib['url_name']
+xml_course_name = tree.getroot().attrib['display_name']
 
 rss = PyRSS2Gen.RSS2(
     title = tree.getroot().attrib['display_name'],
     link = args.course_url,
-    description = "A prototype podcast of the videos from {coursename}, a course from {org} on edX. The full course, including assessments, is available, free-of-charge, at {course_url}.".format(coursename=tree.getroot().attrib['display_name'], org=tree.getroot().attrib['org'], course_url = args.course_url), 
+    description = "A prototype podcast of the videos from {coursename}, a course from {org} on edX. The full course, including assessments, is available, free-of-charge, at {course_url}. {feedtype} Note that this is an interactive course; in some cases, the videos may be difficult to follow without the integrated interactive content on http://www.edx.org.".format(coursename=xml_course_name, org=xml_org, course_url = args.course_url, feedtype = vfp[video_format]['vdc']), 
     lastBuildDate = datetime.datetime.now(), 
     items = items, 
     managingEditor = "edX Learning Sciences"
@@ -114,6 +113,10 @@ rss = PyRSS2Gen.RSS2(
 ## Write output to a file
 data = StringIO.StringIO()
 rss.write_xml(data)
-f = open("output/course.rss", "w")
+output_filename = "output/{org}_{course}_{url_name}_{format}.rss".format(org = xml_org, 
+                                                                         course = xml_course, 
+                                                                         url_name = xml_url_name, 
+                                                                         format = video_format)
+f = open(output_filename, "w")
 f.write(xml.dom.minidom.parseString(data.getvalue()).toprettyxml())
 f.close()
