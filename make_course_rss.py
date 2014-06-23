@@ -1,27 +1,62 @@
+import StringIO
+import argparse
 import datetime
+import os
 import os.path
 import re
 import sys
-import StringIO
+import urlparse
 import xml.dom.minidom
 
 import PyRSS2Gen
 
 import helpers
 
-video_format = "mp4"
+parser = argparse.ArgumentParser(description = "Generate an RSS feed of a course.")
+parser.add_argument("base", help="Base directory of Studio-dumped XML")
+parser.add_argument("url_base", help="URL the feed will be hosted from")
+parser.add_argument("--format", help="Format of RSS feed (mp4, webm, 3gp, or m4a)", default='webm', dest='format')
+parser.add_argument("--course_url", help="URL of the course about page", default="https://www.edx.org/", dest="course_url")
+
+args = parser.parse_args()
+
+video_format = args.format
+url_base = args.url_base
+base = args.base
 
 # Video format params
 vfp = { 'mp4': {'vyd' : 'mp4', # Youtube downloader
                 'vfn':'mp4', # Filename extension
                 'vmt':'video/mp4', # MIME type
                 'vdr': 'mp4',  # Directory
-                'vcn': 'MPEG Video' # Video codec name
-                }
+                'vcn': 'MPEG Video', # Video codec name
+                'vdc': 'This RSS feed is for MPEG videos. This is the most common video format and should work with most software. ' # Description
+                }, 
+        'webm': {'vyd' : 'webm', # Youtube downloader
+                'vfn':'webm', # Filename extension
+                'vmt':'video/webm', # MIME type
+                'vdr': 'webm',  # Directory
+                'vcn': 'WebM Video', # Video codec name
+                'vdc': 'This RSS feed is using WebM videos. WebM is an advanced video format developed by Goolgle. This is the recommended feed if your software supports it (most software does not). ' # Description
+                }, 
+        '3gp': {'vyd' : '3gp', # Youtube downloader
+                'vfn':'3gp', # Filename extension
+                'vmt':'video/3gpp', # MIME type
+                'vdr': '3gp',  # Directory
+                'vcn': '3GPP Video', # Video codec name
+                'vdc': 'This RSS feed is for video files in the 3gpp format. 3gpp is a low-bandwidth format commonly used for video delivered to cell phones. ' # Description
+                }, 
+        'm4a': {'vyd' : 'm4a', # Youtube downloader
+                'vfn':'m4a', # Filename extension
+                'vmt':'audio/mp4a-latm', # MIME type
+                'vdr': 'm4a',  # Directory
+                'vcn': 'AAC Audio', # Video codec name
+                'vdc': 'This is an audio-only RSS feed. It uses the AAC audio codec. ' # Description
+                }, 
         }
 
-print sys.argv[1]
-tree = helpers.load_xml_course(sys.argv[1])
+print base
+tree = helpers.load_xml_course(base)
 
 items = []
 
@@ -49,22 +84,28 @@ for e in tree.iter():
         
         item_dict['description'] = "edX RSS Prototype. Video is from "+(" / ".join(description))
         
-        dl_filename = os.path.join('output', youtube_id+"."+vfp[video_format]['vfn'])
+        base_filename = youtube_id+"."+vfp[video_format]['vfn']
+        dl_filename = os.path.join('output', base_filename)
         if not os.path.exists(dl_filename):
             command = "youtube-dl -f {fmt} https://www.youtube.com/watch?v={uid} -o {file}".format(fmt=vfp[video_format]['vyd'], 
                                                                                                    uid=youtube_id, 
                                                                                                    file=dl_filename)
             os.system(command)
+        item_dict['enclosure'] = PyRSS2Gen.Enclosure(url=urlparse.urljoin(url_base, base_filename),
+                                                     length=os.stat(dl_filename).st_size,
+                                                     type=vfp[video_format]['vmt'])
         #video_url = "http://foo.com"
         #item_dict['enclosure'] = video_url
         #print e.attrib['youtube_id_1_0']
         #print 
         items.append(PyRSS2Gen.RSSItem(**item_dict))
 
+print tree.getroot().attrib
+
 rss = PyRSS2Gen.RSS2(
-    title = "edX Course", 
-    link = "http://www.edx.org",
-    description = "A prototype podcast of the videos from {coursename}, a course from {org} on edX. The full course, including assessments, is available, free-of-charge, at http://www.edx.org/".format(coursename=tree.getroot().attrib['display_name'], org=tree.getroot().attrib['org']), 
+    title = tree.getroot().attrib['display_name'],
+    link = args.course_url,
+    description = "A prototype podcast of the videos from {coursename}, a course from {org} on edX. The full course, including assessments, is available, free-of-charge, at {course_url}.".format(coursename=tree.getroot().attrib['display_name'], org=tree.getroot().attrib['org'], course_url = args.course_url), 
     lastBuildDate = datetime.datetime.now(), 
     items = items, 
     managingEditor = "edX Learning Sciences"
