@@ -25,7 +25,7 @@ tree = helpers.load_xml_course(sys.argv[1])
 
 items = []
 
-valid_youtube_id = re.compile("^[0-9a-zA-Z_]*$")
+valid_youtube_id = re.compile("^[0-9a-zA-Z_\-]*$")
 
 ## Add videos
 for e in tree.iter():
