@@ -46,7 +46,7 @@ vfp = { 'mp4': {'vyd' : 'mp4', # Youtube downloader
                 'vcn': '3GPP Video', # Video codec name
                 'vdc': 'This RSS feed is for video files in the 3gpp format. 3gpp is a low-bandwidth format commonly used for video delivered to cell phones. ' # Description
                 }, 
-        'm4a': {'vyd' : 'm4a', # Youtube downloader
+        'm4a': {'vyd' : '140', # Youtube downloader
                 'vfn':'m4a', # Filename extension
                 'vmt':'audio/mp4a-latm', # MIME type
                 'vdr': 'm4a',  # Directory
