@@ -40,8 +40,9 @@ import helpers
 parser = argparse.ArgumentParser(description = "Generate an RSS feed of a course.")
 parser.add_argument("export_base", help="Base directory of Studio-dumped XML")
 parser.add_argument("url_base", help="URL the feed will be hosted from")
-parser.add_argument("--format", help="Format of RSS feed (mp4, webm, 3gp, or m4a)", default='webm', dest='format')
+parser.add_argument("--format", help="Format of RSS feed (mp4, webm, 3gp, or m4a)", default='3gp', dest='format')
 parser.add_argument("--course_url", help="URL of the course about page", default="https://www.edx.org/", dest="course_url")
+parser.add_argument("--output_dir", help="Output directory", default="output", dest="output_dir")
 
 args = parser.parse_args()
 
@@ -78,6 +79,7 @@ conf = { 'video_format' : args.format,
          'url_base' : args.url_base, 
          'export_base' : args.export_base, 
          'course_url':args.course_url,
+         'output_dir':args.output_dir,
          'mimetype' : video_format_parameters[video_format]['mimetype'], 
          'codec_description' : video_format_parameters[video_format]['codec_description'], 
          'video_codec_name' : video_format_parameters[video_format]['video_codec_name'], 
@@ -107,7 +109,7 @@ for e in tree.iter():
         if 'youtube_id_1_0' not in e.attrib:
             continue
         youtube_id = e.attrib['youtube_id_1_0']
-        youtube_cache = os.path.join('output', youtube_id + ".json")
+        youtube_cache = os.path.join(conf['output_dir'], youtube_id + ".json")
         if not os.path.exists(youtube_cache):
             youtube_info = helpers.youtube_entry(youtube_id)
             f = open(youtube_cache, "w")
@@ -132,7 +134,7 @@ for e in tree.iter():
         
         
         base_filename = youtube_id+"."+conf['video_extension']
-        dl_filename = os.path.join('output', base_filename)
+        dl_filename = os.path.join(conf['output_dir'], base_filename)
         if not os.path.exists(dl_filename):
             command = "youtube-dl -f {fmt} https://www.youtube.com/watch?v={uid} -o {file}".format(fmt=conf['youtube_dl_code'], 
                                                                                                    uid=youtube_id, 
@@ -147,10 +149,10 @@ for e in tree.iter():
         if len(youtube_description) > 0 and youtube_description[-1]!=' ':
             youtube_description = youtube_description + ' '
 
-        item_dict['description'] = conf['video_description'].format(youtube_description = youtube_description,
-                                                                    video_location = (" / ".join(description)), 
-                                                                    pretty_length = pretty_length, 
-                                                                    duration = youtube_info['duration_str'], 
+        item_dict['description'] = conf['video_description'].format(youtube_description = youtube_description.encode('utf-8'),
+                                                                    video_location = (" / ".join(description)).encode('utf-8'), 
+                                                                    pretty_length = pretty_length.encode('utf-8'), 
+                                                                    duration = youtube_info['duration_str'].encode('utf-8'), 
                                                                     **conf)
 
         item_dict['enclosure'] = PyRSS2Gen.Enclosure(url=urlparse.urljoin(conf['url_base'], base_filename),
@@ -172,11 +174,12 @@ rss = PyRSS2Gen.RSS2(
 ## Write output to a file
 data = StringIO.StringIO()
 rss.write_xml(data)
-output_filename = "output/{org}_{course}_{url_name}_{format}.rss".format(org = conf['course_org'], 
+output_filename = "{output_dir}/{org}_{course}_{url_name}_{format}.rss".format(org = conf['course_org'], 
                                                                          course = conf['course_number'], 
                                                                          url_name = conf['course_id'], 
-                                                                         format = video_format)
+                                                                         format = video_format, 
+                                                                         output_dir = conf['output_dir'])
 f = open(output_filename, "w")
-f.write(xml.dom.minidom.parseString(data.getvalue()).toprettyxml())
+f.write(xml.dom.minidom.parseString(data.getvalue()).toprettyxml().encode('utf-8'))
 f.close()
 print "Saved ", output_filename

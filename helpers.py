@@ -181,7 +181,7 @@ def load_subtree(directory_base, element):
     filename = os.path.join(directory_base, element.tag,element.attrib['url_name']+'.xml')
 
     if os.path.isdir(os.path.join(directory_base, element.tag)) and element.attrib.has_key('url_name'):
-        if not os.path.exists(filename):
+        if not os.path.exists(filename.encode('utf-8')):
             for child in element: 
                 child.parent = element
                 load_subtree(directory_base,child)
@@ -224,8 +224,10 @@ def save_tree(basepath, tree):
                 del e.attrib[key]
 
     output = ET.tostring(tree.getroot()) # TODO: Tounicode
-    output_file = open(os.path.join(basepath, 'course.xml'), "w")
-    output_file.write(xml.dom.minidom.parseString(output).toprettyxml(indent='  '))
+    output_file = open(os.path.join(basepath, 'course.xml'), "wb")
+    md = xml.dom.minidom.parseString(output)
+    pxml = md.toprettyxml(indent='  ')
+    output_file.write(pxml.encode('utf-8'))
     output_file.close()
 
 yt_service = None
@@ -294,3 +296,12 @@ def format_file_size(num):
             return "%3.1f%s" % (num, x)
         num /= 1024.0
     return "%3.1f%s" % (num, 'TB')
+
+def clean_json(base, filename):
+    ''' If filename exists, load it, and save it, with JSON pretty-printed '''
+    fn = os.path.join(base, filename)
+    if os.path.exists(fn):
+        j = json.load(open(fn))
+        fp = open(fn, "w")
+        json.dump(j, fp, indent=2, sort_keys=True)
+        fp.close()

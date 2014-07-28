@@ -1,6 +1,5 @@
 import argparse
 
-
 import helpers
 
 parser = argparse.ArgumentParser(description = "Clean up XML spat out by Studio.")
@@ -41,3 +40,8 @@ helpers.save_tree(args.base, tree)
 #    os.mkdir(os.path.join(args.base, 'static'))
 
 helpers.save_url_name_map(args.base)
+
+# Now, we clean up a few JSON files. 
+for filename in ['policies/edx/policy.json', 'policies/edx/grading_policy.json']:
+    helpers.clean_json(args.base, filename)
+        
