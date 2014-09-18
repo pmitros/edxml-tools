@@ -43,6 +43,8 @@ parser.add_argument("url_base", help="URL the feed will be hosted from")
 parser.add_argument("--format", help="Format of RSS feed (mp4, webm, 3gp, or m4a)", default='3gp', dest='format')
 parser.add_argument("--course_url", help="URL of the course about page", default="https://www.edx.org/", dest="course_url")
 parser.add_argument("--output_dir", help="Output directory", default="output", dest="output_dir")
+parser.add_argument("--output_file", help="Output filename", dest="output_file")
+parser.add_argument("--reverse", help="Reverse order", default="false", dest="reverse", choices=["true", "false"])
 
 args = parser.parse_args()
 
@@ -80,6 +82,8 @@ conf = { 'video_format' : args.format,
          'export_base' : args.export_base, 
          'course_url':args.course_url,
          'output_dir':args.output_dir,
+         'output_file': args.output_file,
+         'reverse': args.reverse.lower() == "true",
          'mimetype' : video_format_parameters[video_format]['mimetype'], 
          'codec_description' : video_format_parameters[video_format]['codec_description'], 
          'video_codec_name' : video_format_parameters[video_format]['video_codec_name'], 
@@ -160,7 +164,8 @@ for e in tree.iter():
                                                      type=conf['mimetype'])
         items.append(PyRSS2Gen.RSSItem(**item_dict))
 
-items.reverse()
+if conf["reverse"]:
+    items.reverse()
 
 rss = PyRSS2Gen.RSS2(
     title = conf["podcast_title"].format(**conf), 
@@ -174,11 +179,15 @@ rss = PyRSS2Gen.RSS2(
 ## Write output to a file
 data = StringIO.StringIO()
 rss.write_xml(data)
-output_filename = "{output_dir}/{org}_{course}_{url_name}_{format}.rss".format(org = conf['course_org'], 
-                                                                         course = conf['course_number'], 
-                                                                         url_name = conf['course_id'], 
-                                                                         format = video_format, 
-                                                                         output_dir = conf['output_dir'])
+if not conf["output_file"]:
+    output_filename = "{output_dir}/{org}_{course}_{url_name}_{format}.rss".format(org = conf['course_org'], 
+                                                                                   course = conf['course_number'], 
+                                                                                   url_name = conf['course_id'], 
+                                                                                   format = video_format, 
+                                                                                   output_dir = conf['output_dir'])
+else:
+    output_filename = conf["output_file"]
+
 f = open(output_filename, "w")
 f.write(xml.dom.minidom.parseString(data.getvalue()).toprettyxml().encode('utf-8'))
 f.close()
