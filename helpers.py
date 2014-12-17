@@ -36,11 +36,21 @@ def save_url_name_slugs(tree):
         if 'url_name' in e.attrib:
             _make_unique_url_slug(e.attrib['url_name'])
 
+def propagate_display_between_parent_and_child(tree):
+    for e in tree.iter():
+        if not hasattr(e, "parent") or e.parent == None:
+            continue
+        if 'display_name' not in e.attrib and 'display_name' in e.parent.attrib:
+            e.attrib['display_name'] = e.parent.attrib['display_name'].strip()
+        if 'display_name' in e.attrib and 'display_name' not in e.parent.attrib:
+            e.parent.attrib['display_name'] = e.attrib['display_name'].strip()
+        
+
 def propagate_display_to_url_name(tree):
     ''' If we have a Studio-assigned URL name, but we do have a display name,
     change the URL name to be a sluggification of the display name '''
     for e in tree.iter():
-        if 'display_name' in e.attrib and studio_hash(e.attrib['url_name']):
+        if 'display_name' in e.attrib and ('url_name' not in e.attrib or studio_hash(e.attrib['url_name'])):
             set_url_name_slug(e, e.attrib['display_name'])
 
 display_map = {}
@@ -49,14 +59,20 @@ def set_url_name_slug(e, new_name):
     We'll keep the mapping in static files. 
     '''
     new_name = url_slug(new_name, unique=True)
-    display_map[new_name] = e.attrib['url_name']
+    if 'url_name' in e.attrib:
+        display_map[new_name] = e.attrib['url_name']
+    else:
+        display_map[new_name] = None
     e.attrib['url_name'] = new_name
 
 def save_url_name_map(basepath):
     ''' Save a mapping from old url names to new url names.
     This way, we can resconstruct between processed/unprocessed courses between 
     runs. '''
-
+    path = os.path.join(basepath, 'static')
+    if not os.path.exists(path):
+        os.mkdir(path)
+    
     mapping_filename = os.path.join(basepath, 'static/urlname_mapping.json')
     i = 0
     while os.path.exists(mapping_filename):

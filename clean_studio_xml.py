@@ -17,6 +17,9 @@ helpers.save_url_name_slugs(tree)
 # Untested: Extract names from Youtube video titles, etc. 
 # helpers.propagate_youtube_information(tree)
 
+## Propagate names down from parents to children
+helpers.propagate_display_between_parent_and_child(tree)
+
 # Give URL names based on display names
 helpers.propagate_display_to_url_name(tree)
 
