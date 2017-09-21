@@ -230,7 +230,7 @@ def save_tree(basepath, tree):
     for e in tree.findall(".//problem"):
         if 'url_name' not in e.attrib:
             continue
-        problemfile = open(os.path.join(basepath, 'problem/{problem}.xml'.format(problem=e.attrib["url_name"])), "w")
+        problemfile = open(os.path.join(basepath, u'problem/{problem}.xml'.format(problem=e.attrib["url_name"])), "w")
         problemfile.write(ET.tostring(e))
         problemfile.close()
         del e._children[:]
